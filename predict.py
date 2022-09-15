@@ -210,7 +210,6 @@ class Predictor(BasePredictor):
 
         for base_filename in generated:
             for _ in trange(passes, desc="Passes"):
-                # realesrgan2x(realesrgan, os.path.join(sample_path, f"{base_filename}.png"), os.path.join(sample_path, f"{base_filename}u.png"))
 
                 realesrgan_enhance(
                     os.path.join(sample_path, f"{base_filename}.png"),

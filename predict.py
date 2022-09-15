@@ -18,6 +18,10 @@ from pytorch_lightning import seed_everything
 import cv2
 from einops import rearrange, repeat
 from basicsr.archs.rrdbnet_arch import RRDBNet
+from diffusers.pipelines.stable_diffusion.safety_checker import (
+    StableDiffusionSafetyChecker,
+)
+from transformers import AutoFeatureExtractor
 from cog import BasePredictor, Path, Input
 
 sys.path.append("./Real-ESRGAN")
@@ -30,6 +34,19 @@ from ldm.models.diffusion.plms import PLMSSampler
 
 class Predictor(BasePredictor):
     def setup(self):
+
+        # load safety model
+        safety_model_id = "CompVis/stable-diffusion-safety-checker"
+        self.safety_feature_extractor = AutoFeatureExtractor.from_pretrained(
+            safety_model_id,
+            cache_dir=f"weights/{safety_model_id}",
+            local_files_only=True,
+        )
+        self.safety_checker = StableDiffusionSafetyChecker.from_pretrained(
+            safety_model_id,
+            cache_dir=f"weights/{safety_model_id}",
+            local_files_only=True,
+        )
 
         config_file = "configs/stable-diffusion/v1-inference.yaml"
         checkpoint = "weights/sd-v1-4.ckpt"
@@ -69,6 +86,16 @@ class Predictor(BasePredictor):
             default="female cyborg assimilated by alien fungus, intricate Three-point lighting portrait, by Ching Yeh and Greg Rutkowski, detailed cyberpunk in the style of GitS 1995",
             description="The prompt to render.",
         ),
+        ori_width: int = Input(
+            description="Width of original stable-diffusion output image. Final output will double the width.",
+            choices=[128, 256, 512, 768],
+            default=512,
+        ),
+        ori_height: int = Input(
+            description="Height of original stable-diffusion output image. Final output will double the height.",
+            choices=[128, 256, 512, 768],
+            default=512,
+        ),
         scale: float = Input(
             default=7.5,
             description="Unconditional guidance scale: eps = eps(x, empty) + scale * (eps(x, cond) - eps(x, empty)).",
@@ -97,8 +124,8 @@ class Predictor(BasePredictor):
         n_iter = 1  # sample this often
         C = 4  # latent channels
         f = 8  # downsampling factor, most often 8 or 16
-        H = 512  # image height, in pixel space
-        W = 512  # image width, in pixel space
+        H = ori_height  # image height, in pixel space
+        W = ori_width  # image width, in pixel space
         strength = 0.3  # strength for noising/unnoising
         precision_scope = autocast
 
@@ -153,7 +180,12 @@ class Predictor(BasePredictor):
                                 x_samples_ddim.cpu().permute(0, 2, 3, 1).numpy()
                             )
 
-                            x_checked_image = x_samples_ddim
+                            # x_checked_image = x_samples_ddim
+                            x_checked_image, has_nsfw_concept = check_safety(
+                                x_samples_ddim,
+                                self.safety_feature_extractor,
+                                self.safety_checker,
+                            )
 
                             x_checked_image_torch = torch.from_numpy(
                                 x_checked_image
@@ -283,8 +315,6 @@ class Predictor(BasePredictor):
                 torch.cuda.empty_cache()
                 gc.collect()
 
-            # put_watermark(final_output, wm_encoder)
-            final_output.save(os.path.join(sample_path, f"{base_filename}.png"))
             final_output.save(out_path)
 
         return Path(out_path)
@@ -472,3 +502,29 @@ def grid_slice(source, overlap, og_size, maximize=False):
     global slices_todo
     slices_todo = len(slices) - 1
     return slices, new_size
+
+
+def check_safety(x_image, safety_feature_extractor, safety_checker):
+    safety_checker_input = safety_feature_extractor(
+        numpy_to_pil(x_image), return_tensors="pt"
+    )
+    x_checked_image, has_nsfw_concept = safety_checker(
+        images=x_image, clip_input=safety_checker_input.pixel_values
+    )
+    assert x_checked_image.shape[0] == len(has_nsfw_concept)
+    for i in range(len(has_nsfw_concept)):
+        if has_nsfw_concept[i]:
+            raise Exception("NSFW content detected, please try a different prompt")
+    return x_checked_image, has_nsfw_concept
+
+
+def numpy_to_pil(images):
+    """
+    Convert a numpy image or a batch of images to a PIL image.
+    """
+    if images.ndim == 3:
+        images = images[None, ...]
+    images = (images * 255).round().astype("uint8")
+    pil_images = [Image.fromarray(image) for image in images]
+
+    return pil_images

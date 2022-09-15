@@ -2,7 +2,7 @@
 
 Try Replicate web demo here: [![Replicate](https://replicate.com/cjwbw/stable-diffusion-high-resolution/badge)](https://replicate.com/cjwbw/stable-diffusion-high-resolution)
 
-This is a Cog implementation of Detailed, higher-resolution images from Stable-Diffusion, originally implemented by @[jquesnelle](https://github.com/jquesnelle) at https://github.com/jquesnelle/txt2imghd/blob/master/txt2imghd.py
+This is a Cog implementation of Detailed, higher-resolution images from Stable-Diffusion, originally implemented by @[jquesnelle](https://github.com/jquesnelle) [here](https://github.com/jquesnelle/txt2imghd/blob/master/txt2imghd.py). Additionally, safety checker is added.
 
 
 txt2imghd is a port of the GOBIG mode from [progrockdiffusion](https://github.com/lowfuel/progrockdiffusion) applied to Stable Diffusion, with [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) as the upscaler. It creates detailed, higher-resolution images by first generating an image from a prompt, upscaling it, and then running img2img on smaller pieces of the upscaled image, and blending the result back into the original image.

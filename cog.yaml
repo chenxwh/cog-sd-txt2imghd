@@ -14,6 +14,7 @@ build:
     - "transformers==4.19.2"
     - "kornia==0.6"
     - "basicsr==1.4.2"
+    - "diffusers==0.3.0"
 
   run:
     - pip install torch==1.10.0+cu113 torchvision==0.11.1+cu113 -f https://download.pytorch.org/whl/torch_stable.html

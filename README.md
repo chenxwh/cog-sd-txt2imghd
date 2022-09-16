@@ -12,7 +12,6 @@ txt2imghd with default settings has the same VRAM requirements as regular Stable
 
 ## Get started locally
 Install [Cog](https://github.com/replicate/cog) if you haven't: 
-`curl https://storage.googleapis.com/replicate-public/codespaces/install-cog.sh | bash`
 
 1. Clone stanle-diffusion `git clone https://github.com/CompVis/stable-diffusion`
 2. Put `cog.yaml` and `predict.py` in the root directory of `stable-diffusion` and download weights (as noted at the top of `predict.py`)
